@@ -180,7 +180,7 @@ try:
 				curr_progress = progress
 			if line_number < line_count and (
 					(inline == "\n") or
-					(len(inline) > 2 and inline[-2] != delimiter and is_delimiter_in_last) or
+					(len(inline) > 1 and inline[-2] != delimiter and is_delimiter_in_last) or
 					(curr_delimiter_count < delimiter_count)):
 				error_line_numbers.append(line_number)
 				if last_error_line != line_number - 1:
