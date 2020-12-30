@@ -80,11 +80,12 @@ error_count = 0
 delimiter_count = 0
 is_delimiter_in_last = False
 error_line_numbers = []
-column_lengths = []
-description_column_number = -1
+# column_lengths = []
+# description_column_number = -1
 outfile = filename + "_check log.txt"
 with open(outfile, "wt") as f:
 	f.write("[주의] 프로그램을 통한 검사에서 발견되지 않는 오류가 존재할 수 있습니다\n")
+	
 write_file(outfile, "*프로그램 버전: " + _version)
 write_file(outfile, "*검사한 파일: " + filename)
 
@@ -96,6 +97,7 @@ try:
 			result = detect_encoding(infile.read(100000))
 			confidence = float(result["confidence"] if result["confidence"] is not None else 0.0)
 		encoding = result["encoding"]
+		
 	encoding = "cp949" if "UTF-8" not in encoding else encoding
 	encoding_as = ""
 	if encoding == "UTF-8-SIG":
@@ -114,6 +116,7 @@ try:
 	print(" [2/4] 구분자(Delimiter) 확인중...", end="")
 	with open(filename, "rt", encoding=encoding, errors="ignore") as infile:
 		delimiter = detect_delimiter(infile.readline(), whitelist=['|', '\t', ';', ','])
+		
 	delimiter_as = ""
 	if delimiter == "|":
 		delimiter_as = "PIPE(|)"
@@ -138,9 +141,6 @@ try:
 		line_count = 0
 		curr_progress = -1
 		inline = infile.readline()
-		# delimiter_count = inline.count(delimiter)
-		# is_delimiter_in_last = (inline[-2] == delimiter) if inline != "\n" else False
-		# column_lengths = [0] * delimiter_count if is_delimiter_in_last else [0] * (delimiter_count + 1)
 		while inline:
 			line_count += 1
 			inline = infile.readline()
@@ -148,12 +148,6 @@ try:
 			if curr_progress != progress:
 				curr_progress = progress
 				print("\r [3/4] Line 수 확인중" + ("." * (progress % 5)) + "     ", end="")
-		# if inline != "\n":
-		#    curr_delimiter_count = inline.count(delimiter)
-		#    if curr_delimiter_count == delimiter_count:
-		#       line_list = inline.split(delimiter)
-		#       for i in range(len(column_lengths)):
-		#          column_lengths[i] = max(column_lengths[i], len(line_list[i]))
 	
 	print("\r [3/4] Line 수 확인: " + str(line_count) + " ([주의] 텍스트 Line 수로, JE Line 수와 다를 수 있습니다)")
 	write_file(outfile, "*Line 수 확인: " + str(line_count) + " ([주의] 텍스트 Line 수로, JE Line 수와 다를 수 있습니다)")
@@ -172,21 +166,18 @@ try:
 		inline = infile.readline()
 		delimiter_count = inline.count(delimiter)
 		is_delimiter_in_last = (inline[-2] == delimiter) if inline != "\n" else False
-		column_lengths = [0] * delimiter_count if is_delimiter_in_last else [0] * (delimiter_count + 1)
+		# column_lengths = [0] * delimiter_count if is_delimiter_in_last else [0] * (delimiter_count + 1)
 		last_error_line = 0
 		curr_progress = -1
 		while line_number < line_count:
 			line_number += 1
-			progress = int(line_number * 100 / line_count)
-			if progress != curr_progress:
-				if error_count > 0:
-					print("\r [4/4] 줄바꿈, 구분자 오류 확인중..." + str(progress) + "%" +
-					      " 현재까지 발견된 오류 수: " + str(error_count), end="")
-				else:
-					print("\r [4/4] 줄바꿈, 구분자 오류 확인중..." + str(progress) + "%", end="")
-				curr_progress = progress
 			inline = infile.readline()
 			curr_delimiter_count = inline.count(delimiter)
+			progress = int(line_number * 100 / line_count)
+			if progress != curr_progress:
+				print("\r [4/4] 줄바꿈, 구분자 오류 확인중..." + str(progress) + "%" +
+				      ((" 현재까지 발견된 오류 수: " + str(error_count)) if error_count > 0 else ""), end="")
+				curr_progress = progress
 			if line_number < line_count and (
 					(inline == "\n") or
 					(len(inline) > 2 and inline[-2] != delimiter and is_delimiter_in_last) or
@@ -194,15 +185,11 @@ try:
 				error_line_numbers.append(line_number)
 				if last_error_line != line_number - 1:
 					error_count += 1
-					last_error_line = line_number
-					write_file(outfile,
-					           str(error_count) + "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
-					           "\t줄바꿈 문자가 필드에 존재\t" + inline.split(delimiter)[0].replace("\n", ""))
-				else:
-					last_error_line = line_number
-					write_file(outfile,
-					           "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
-					           "\t줄바꿈 문자가 필드에 존재\t" + inline.split(delimiter)[0].replace("\n", ""))
+				write_file(outfile,
+				           (str(error_count) if  (last_error_line != line_number - 1) else "") +
+				           "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
+				           "\t줄바꿈 문자가 필드에 존재\t" + inline.split(delimiter)[0].replace("\n", ""))
+				last_error_line = line_number
 			elif curr_delimiter_count > delimiter_count:
 				error_line_numbers.append(line_number)
 				error_count += 1
@@ -210,15 +197,16 @@ try:
 				           str(error_count) + "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
 				           "\t구분자가 필드에 존재\t\t" + inline.split(delimiter)[0].replace("\n", ""))
 				last_delimiter_count = 0
-		# elif curr_delimiter_count == delimiter_count:
-		#    line_list = inline.split(delimiter)
-		#    for i in range(len(column_lengths)):
-		#       column_lengths[i] = max(column_lengths[i], len(line_list[i]))
-	# max_length = 0
-	# for i in range(len(column_lengths)):
-	#    if column_lengths[i] > max_length:
-	#       max_length = column_lengths[i]
-	#       description_column_number = i+1
+		# 	elif curr_delimiter_count == delimiter_count:
+		# 	   line_list = inline.split(delimiter)
+		# 	   for i in range(len(column_lengths)):
+		# 	      column_lengths[i] = max(column_lengths[i], len(line_list[i]))
+		# max_length = 0
+		# for i in range(len(column_lengths)):
+		#    if column_lengths[i] > max_length:
+		#       max_length = column_lengths[i]
+		#       description_column_number = i+1
+	
 	write_file(outfile, "End of Line")
 	write_file(outfile, "=" * 80)
 	if error_count > 0:
@@ -240,8 +228,8 @@ print(" 검사 결과가 아래 check log 파일에 저장됩니다")
 print(outfile)
 
 print("...")
-exitCode = input("창을 닫거나 엔터키를 입력해 프로그램을 종료하세요")
 # if error_count == 0:
 #    exitCode = input("엔터키를 입력해 프로그램을 종료하세요")
 # else:
 #    print("발견된 오류에 대해 자동 수정을 시도합니다")
+exitCode = input("창을 닫거나 엔터키를 입력해 프로그램을 종료하세요")
