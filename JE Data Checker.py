@@ -186,7 +186,7 @@ try:
 				if last_error_line != line_number - 1:
 					error_count += 1
 				write_file(outfile,
-				           (str(error_count) if  (last_error_line != line_number - 1) else "") +
+				           (str(error_count) if (last_error_line != line_number - 1) else "") +
 				           "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
 				           "\t줄바꿈 문자가 필드에 존재\t" + inline.split(delimiter)[0].replace("\n", ""))
 				last_error_line = line_number
