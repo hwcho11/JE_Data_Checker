@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['JE Data Checker.py'],
-             pathex=['C:\\Users\\PV368GD\\Downloads\\_DEV\\Python\\JE Data Checker'],
+             pathex=['C:\\Users\\PV368GD\\Downloads\\_DEV\\Python391\\JE Data Checker'],
              binaries=[],
              datas=[],
              hiddenimports=[],

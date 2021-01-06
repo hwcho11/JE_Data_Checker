@@ -7,7 +7,7 @@ from timeit import default_timer
 from tkinter import filedialog
 from tkinter import Tk
 
-_version = "20201230_19"
+_version = "20210106_20"
 
 
 def load_file():
@@ -34,34 +34,6 @@ print(" 이 프로그램은 원본 파일의 내용 및 오류를 수정하지 �
 print(" 이 프로그램을 이용한 검사에서 발견되지 않는 오류가 존재할 수 있습니다")
 print("=" * 80)
 
-# print("...")
-# print("검사할 파일이 있는 경로를 입력하세요(프로그램 exe 파일과 같은 폴더에 있다면 엔터키만 입력)")
-# filepath = ""
-# _loop = True
-# while _loop:
-#    filepath = input(" 여기에 입력: ")
-#    if filepath == "":
-#       filepath = os.getcwd()
-#    if os.path.isdir(filepath):
-#       print(" 입력한 경로에서 " + str(len(os.listdir(filepath))) + "개의 파일 또는 폴더를 확인했습니다")
-#       _loop = False
-#    else:
-#       print(" 존재하지 않는 경로입니다 e.g C:\\path\\to\\data")
-#
-# print("...")
-# print("검사할 파일의 파일명을 입력하세요(확장자 포함)")
-# filename = ""
-# _loop = True
-# while _loop:
-#    filename = input(" 여기에 입력: ")
-#    if (filepath == "" and filename not in os.listdir()) or filename not in os.listdir(filepath):
-#       print(" 존재하지 않는 파일입니다 e.g 전표데이터.txt")
-#    else:
-#       _loop = False
-# filepath = filepath.replace('\\', '/')
-# filename = filepath + filename if filepath[-1] == '/' else filepath + "/" + filename
-# print("DEBUG#filename# "+filename)
-
 print("...")
 print("검사할 파일을 선택하세요")
 filename = load_file()
@@ -80,8 +52,6 @@ error_count = 0
 delimiter_count = 0
 is_delimiter_in_last = False
 error_line_numbers = []
-# column_lengths = []
-# description_column_number = -1
 outfile = filename + "_check log.txt"
 with open(outfile, "wt") as f:
 	f.write("[주의] 프로그램을 통한 검사에서 발견되지 않는 오류가 존재할 수 있습니다\n")
@@ -166,7 +136,6 @@ try:
 		inline = infile.readline()
 		delimiter_count = inline.count(delimiter)
 		is_delimiter_in_last = (inline[-2] == delimiter) if inline != "\n" else False
-		# column_lengths = [0] * delimiter_count if is_delimiter_in_last else [0] * (delimiter_count + 1)
 		last_error_line = 0
 		curr_progress = -1
 		while line_number < line_count:
@@ -197,15 +166,6 @@ try:
 				           str(error_count) + "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
 				           "\t구분자가 필드에 존재\t\t" + inline.split(delimiter)[0].replace("\n", ""))
 				last_delimiter_count = 0
-		# 	elif curr_delimiter_count == delimiter_count:
-		# 	   line_list = inline.split(delimiter)
-		# 	   for i in range(len(column_lengths)):
-		# 	      column_lengths[i] = max(column_lengths[i], len(line_list[i]))
-		# max_length = 0
-		# for i in range(len(column_lengths)):
-		#    if column_lengths[i] > max_length:
-		#       max_length = column_lengths[i]
-		#       description_column_number = i+1
 	
 	write_file(outfile, "End of Line")
 	write_file(outfile, "=" * 80)
@@ -228,8 +188,4 @@ print(" 검사 결과가 아래 check log 파일에 저장됩니다")
 print(outfile)
 
 print("...")
-# if error_count == 0:
-#    exitCode = input("엔터키를 입력해 프로그램을 종료하세요")
-# else:
-#    print("발견된 오류에 대해 자동 수정을 시도합니다")
 exitCode = input("창을 닫거나 엔터키를 입력해 프로그램을 종료하세요")
