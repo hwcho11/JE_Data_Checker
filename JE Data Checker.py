@@ -4,10 +4,10 @@ from os import getcwd
 from detect_delimiter import detect as detect_delimiter
 from cchardet import detect as detect_encoding
 from timeit import default_timer
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from tkinter import Tk
 
-_version = "20210106_20"
+_version = "20210218_05_D"
 
 
 def load_file():
@@ -22,6 +22,12 @@ def write_file(name, line, cr=True):
 		ff.write(line + ("\n" if cr else ""))
 
 
+def select_options():
+	window = Tk()
+	window.withdraw()
+	return messagebox.askyesno(title="JE DATA CHECKER (D)", message="줄바꿈 오류가 있는 파일의 자동 cleansing을 시도합니까?\n줄바꿈 오류가 없다면 No를 클릭하세요")
+
+
 print("[!] FOR INTERNAL USE ONLY (Technology Risk Team)")
 print("=" * 80)
 print(" JE DATA CHECKER ver." + _version)
@@ -33,6 +39,11 @@ print(" 검사중 발견된 오류의 위치 및 오류의 내용을 log 파일�
 print(" 이 프로그램은 원본 파일의 내용 및 오류를 수정하지 않습니다")
 print(" 이 프로그램을 이용한 검사에서 발견되지 않는 오류가 존재할 수 있습니다")
 print("=" * 80)
+print(" <D 버전 추가 기능>")
+print(" 필요한 경우 줄바꿈 오류를 자동으로 치료 시도합니다 (구분자 오류 제외)")
+print(" cleansing 완료된 결과를 cleansed 사본 파일에 출력합니다")
+print(" 사본 파일은 자동으로 UTF-8 with Signature 인코딩 저장됩니다.")
+print("=" * 80)
 
 print("...")
 print("검사할 파일을 선택하세요")
@@ -42,8 +53,12 @@ if filename == "":
 	exit()
 print(" 선택된 파일: " + filename)
 
+doctor = select_options()
 print("...")
-print("검사를 시작합니다")
+if doctor :
+	print("검사를 시작합니다")
+else :
+	print("검사를 시작합니다 [줄바꿈 오류 cleansing 수행중]")
 start_time = default_timer()
 encoding = ""
 delimiter = ""
@@ -53,6 +68,7 @@ delimiter_count = 0
 is_delimiter_in_last = False
 error_line_numbers = []
 outfile = filename + "_check log.txt"
+cleansedfile = filename + "_cleansed.txt"
 with open(outfile, "wt") as f:
 	f.write("[주의] 프로그램을 통한 검사에서 발견되지 않는 오류가 존재할 수 있습니다\n")
 	
@@ -125,58 +141,127 @@ except Exception as e:
 	write_file(outfile, "*Line 수 확인 중 아래와 같은 프로그램 오류가 발생했습니다:\n" + str(e))
 	print("\r 프로그램 오류로 인해 Line 수 확인에 실패했습니다")
 
-try:
-	print(" [4/4] 줄바꿈, 구분자 오류 확인중...", end="")
-	write_file(outfile, "*발견된 오류 : Line 번호는 텍스트의 Line 위치입니다 (단축키 Ctrl+G)")
-	write_file(outfile, "=" * 80)
-	write_file(outfile, "No.\tLine 번호\t오류 유형\t\t\t첫번째 열 내용")
-	write_file(outfile, "=" * 80)
-	with open(filename, "rt", encoding=encoding, errors="ignore") as infile:
-		line_number = 1
-		inline = infile.readline()
-		delimiter_count = inline.count(delimiter)
-		is_delimiter_in_last = (inline[-2] == delimiter) if inline != "\n" else False
-		last_error_line = 0
-		curr_progress = -1
-		while line_number < line_count:
-			line_number += 1
+if doctor:
+	try:
+		print(" [4/4] 줄바꿈, 구분자 오류 확인중...", end="")
+		write_file(outfile, "*발견된 오류 : Line 번호는 텍스트의 Line 위치입니다 (단축키 Ctrl+G)")
+		write_file(outfile, "=" * 80)
+		write_file(outfile, "No.\tLine 번호\t오류 유형\t\t\t첫번째 열 내용")
+		write_file(outfile, "=" * 80)
+		with open(filename, "rt", encoding=encoding, errors="ignore") as infile:
+			with open(cleansedfile, "wt", encoding="UTF-8-SIG", errors="ignore") as cleansed:
+				line_number = 1
+				inline = infile.readline()
+				cleansed.write(inline)
+				reservedline = ""
+				delimiter_count = inline.count(delimiter)
+				is_delimiter_in_last = (inline[-2] == delimiter) if inline != "\n" else False
+				last_error_line = 0
+				curr_progress = -1
+				while line_number < line_count:
+					line_number += 1
+					inline = infile.readline()
+					curr_delimiter_count = inline.count(delimiter)
+					progress = int(line_number * 100 / line_count)
+					if progress != curr_progress:
+						print("\r [4/4] 줄바꿈, 구분자 오류 확인중..." + str(progress) + "%" +
+						      ((" 현재까지 발견된 오류 수: " + str(error_count)) if error_count > 0 else ""), end="")
+						curr_progress = progress
+					if line_number < line_count and (
+							(inline == "\n") or
+							(len(inline) > 1 and inline[-2] != delimiter and is_delimiter_in_last) or
+							(curr_delimiter_count < delimiter_count)):
+						error_line_numbers.append(line_number)
+						if last_error_line != line_number - 1:
+							error_count += 1
+						write_file(outfile,
+						           (str(error_count) if (last_error_line != line_number - 1) else "") +
+						           "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
+						           "\t줄바꿈 문자가 필드에 존재\t" + inline.split(delimiter)[0].replace("\n", ""))
+						last_error_line = line_number
+						if reservedline == "":
+							reservedline = inline.replace("\n", "")
+						else:
+							reservedline += inline.replace("\n", "")
+							new_delimiter_count = reservedline.count(delimiter)
+							if new_delimiter_count >= delimiter_count:
+								cleansed.write(reservedline+"\n")
+								reservedline = ""
+					elif curr_delimiter_count > delimiter_count:
+						error_line_numbers.append(line_number)
+						error_count += 1
+						write_file(outfile,
+						           str(error_count) + "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
+						           "\t구분자가 필드에 존재\t\t" + inline.split(delimiter)[0].replace("\n", ""))
+						last_delimiter_count = 0
+						cleansed.write(inline)
+					else:
+						cleansed.write(inline)
+		
+		write_file(outfile, "End of Line")
+		write_file(outfile, "=" * 80)
+		if error_count > 0:
+			print("\r [4/4] 발견된 오류 수: " + str(error_count) + " (자세한 오류 위치는 log 파일을 확인하세요)")
+		else:
+			print("\r [4/4] 발견된 오류 수: 0" + " " * 60)
+		write_file(outfile, "*발견된 오류 수: " + str(error_count))
+	except Exception as e:
+		write_file(outfile, "검사 중 아래와 같은 프로그램 오류가 발생했습니다:\n" + str(e))
+		print("\r 프로그램 오류로 인해 검사가 중단되었습니다")
+
+else:
+	try:
+		print(" [4/4] 줄바꿈, 구분자 오류 확인중...", end="")
+		write_file(outfile, "*발견된 오류 : Line 번호는 텍스트의 Line 위치입니다 (단축키 Ctrl+G)")
+		write_file(outfile, "=" * 80)
+		write_file(outfile, "No.\tLine 번호\t오류 유형\t\t\t첫번째 열 내용")
+		write_file(outfile, "=" * 80)
+		with open(filename, "rt", encoding=encoding, errors="ignore") as infile:
+			line_number = 1
 			inline = infile.readline()
-			curr_delimiter_count = inline.count(delimiter)
-			progress = int(line_number * 100 / line_count)
-			if progress != curr_progress:
-				print("\r [4/4] 줄바꿈, 구분자 오류 확인중..." + str(progress) + "%" +
-				      ((" 현재까지 발견된 오류 수: " + str(error_count)) if error_count > 0 else ""), end="")
-				curr_progress = progress
-			if line_number < line_count and (
-					(inline == "\n") or
-					(len(inline) > 1 and inline[-2] != delimiter and is_delimiter_in_last) or
-					(curr_delimiter_count < delimiter_count)):
-				error_line_numbers.append(line_number)
-				if last_error_line != line_number - 1:
+			delimiter_count = inline.count(delimiter)
+			is_delimiter_in_last = (inline[-2] == delimiter) if inline != "\n" else False
+			last_error_line = 0
+			curr_progress = -1
+			while line_number < line_count:
+				line_number += 1
+				inline = infile.readline()
+				curr_delimiter_count = inline.count(delimiter)
+				progress = int(line_number * 100 / line_count)
+				if progress != curr_progress:
+					print("\r [4/4] 줄바꿈, 구분자 오류 확인중..." + str(progress) + "%" +
+					      ((" 현재까지 발견된 오류 수: " + str(error_count)) if error_count > 0 else ""), end="")
+					curr_progress = progress
+				if line_number < line_count and (
+						(inline == "\n") or
+						(len(inline) > 1 and inline[-2] != delimiter and is_delimiter_in_last) or
+						(curr_delimiter_count < delimiter_count)):
+					error_line_numbers.append(line_number)
+					if last_error_line != line_number - 1:
+						error_count += 1
+					write_file(outfile,
+					           (str(error_count) if (last_error_line != line_number - 1) else "") +
+					           "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
+					           "\t줄바꿈 문자가 필드에 존재\t" + inline.split(delimiter)[0].replace("\n", ""))
+					last_error_line = line_number
+				elif curr_delimiter_count > delimiter_count:
+					error_line_numbers.append(line_number)
 					error_count += 1
-				write_file(outfile,
-				           (str(error_count) if (last_error_line != line_number - 1) else "") +
-				           "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
-				           "\t줄바꿈 문자가 필드에 존재\t" + inline.split(delimiter)[0].replace("\n", ""))
-				last_error_line = line_number
-			elif curr_delimiter_count > delimiter_count:
-				error_line_numbers.append(line_number)
-				error_count += 1
-				write_file(outfile,
-				           str(error_count) + "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
-				           "\t구분자가 필드에 존재\t\t" + inline.split(delimiter)[0].replace("\n", ""))
-				last_delimiter_count = 0
-	
-	write_file(outfile, "End of Line")
-	write_file(outfile, "=" * 80)
-	if error_count > 0:
-		print("\r [4/4] 발견된 오류 수: " + str(error_count) + " (자세한 오류 위치는 log 파일을 확인하세요)")
-	else:
-		print("\r [4/4] 발견된 오류 수: 0" + " " * 60)
-	write_file(outfile, "*발견된 오류 수: " + str(error_count))
-except Exception as e:
-	write_file(outfile, "검사 중 아래와 같은 프로그램 오류가 발생했습니다:\n" + str(e))
-	print("\r 프로그램 오류로 인해 검사가 중단되었습니다")
+					write_file(outfile,
+					           str(error_count) + "\t" + str(line_number) + ("\t" if line_number < 10000000 else "") +
+					           "\t구분자가 필드에 존재\t\t" + inline.split(delimiter)[0].replace("\n", ""))
+					last_delimiter_count = 0
+		
+		write_file(outfile, "End of Line")
+		write_file(outfile, "=" * 80)
+		if error_count > 0:
+			print("\r [4/4] 발견된 오류 수: " + str(error_count) + " (자세한 오류 위치는 log 파일을 확인하세요)")
+		else:
+			print("\r [4/4] 발견된 오류 수: 0" + " " * 60)
+		write_file(outfile, "*발견된 오류 수: " + str(error_count))
+	except Exception as e:
+		write_file(outfile, "검사 중 아래와 같은 프로그램 오류가 발생했습니다:\n" + str(e))
+		print("\r 프로그램 오류로 인해 검사가 중단되었습니다")
 
 print("...")
 print("검사가 완료되었습니다")
@@ -186,6 +271,9 @@ write_file(outfile, "*검사 소요시간(초): " + str(end_time - start_time))
 write_file(outfile, "검사가 완료되었습니다")
 print(" 검사 결과가 아래 check log 파일에 저장됩니다")
 print(outfile)
+if doctor:
+	print(" 오류 치료 결과가 아래 cleansed 파일에 저장됩니다")
+	print(cleansedfile)
 
 print("...")
 exitCode = input("창을 닫거나 엔터키를 입력해 프로그램을 종료하세요")
