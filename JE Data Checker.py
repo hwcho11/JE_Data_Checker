@@ -7,7 +7,7 @@ from timeit import default_timer
 from tkinter import filedialog, messagebox
 from tkinter import Tk
 
-_version = "20210218_05_D"
+_version = "20210218_06_D"
 
 
 def load_file():
@@ -56,9 +56,9 @@ print(" 선택된 파일: " + filename)
 doctor = select_options()
 print("...")
 if doctor :
-	print("검사를 시작합니다")
-else :
 	print("검사를 시작합니다 [줄바꿈 오류 cleansing 수행중]")
+else :
+	print("검사를 시작합니다")
 start_time = default_timer()
 encoding = ""
 delimiter = ""
